@@ -44,22 +44,129 @@
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	"use strict";
+	'use strict';
+
+	var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 	var Papa = __webpack_require__(1);
 
+	var patterns = [];
+	var promotions = [];
+
+	var createChart = function createChart() {
+	  var svg = d3.select('svg');
+	  var margin = { top: 20, right: 20, bottom: 30, left: 40 };
+	  var width = +svg.attr('width') - margin.left - margin.right;
+	  var height = +svg.attr('height') - margin.top - margin.bottom;
+
+	  var x = d3.scaleBand().rangeRound([0, width]).padding(0.1);
+	  var y = d3.scaleLinear().rangeRound([height, 0]);
+
+	  d3.select('svg').selectAll('rect').data(patterns).enter().append('rect').attr('height', function (d) {
+	    return d.salesTotal() + 20;
+	  }).attr('x', function (d, i) {
+	    return i * (width / patterns.length);
+	  }).attr('y', function (d) {
+	    return height - d.salesTotal() + 20;
+	  }).attr('width', 20);
+	  // .text(function(d) { return d.name; });
+
+	  svg.selectAll('text').data(patterns).enter().append('text').attr('x', function (d, i) {
+	    return i * (width / patterns.length) + 10;
+	  }).attr('y', function (d) {
+	    return height - d.salesTotal() + 35;
+	  }).attr('font-family', 'sans-serif').attr('font-size', '11px').attr('fill', 'white').attr("text-anchor", "middle").text(function (d) {
+	    return d.salesTotal();
+	  });
+	};
+
 	var pullfiles = function pullfiles() {
-	  var fileInput = document.querySelector("#csv");
+	  var fileInput = document.querySelector('#csv');
+
 	  Papa.parse(fileInput.files[0], {
 	    complete: function complete(results) {
-	      console.log(results);
+	      results.data.forEach(function (row) {
+	        var promotion = row.Product.split(':').includes('Promotion');
+	        if (!promotion) {
+	          var pattern = new Pattern(row);
+	          patterns.push(pattern);
+	        }
+	      });
+	      createChart();
 	    },
 	    dynamicTyping: true,
 	    header: true
 	  });
 	};
 
-	document.querySelector("#csv").onchange = pullfiles;
+	document.querySelector('#csv').onchange = pullfiles;
+
+	var Pattern = function () {
+	  function Pattern(row) {
+	    var _this = this;
+
+	    _classCallCheck(this, Pattern);
+
+	    this.name = row.Product;
+
+	    // remove product name to have just sales & units
+	    delete row.Product;
+	    this.data = row;
+
+	    var keys = Object.keys(this.data);
+	    var splitKeys = keys.map(function (key) {
+	      return key.split(' ');
+	    });
+	    var salesKeys = splitKeys.filter(function (keyArray) {
+	      return keyArray.includes('Sales');
+	    });
+	    var unitKeys = splitKeys.filter(function (keyArray) {
+	      return keyArray.includes('Units');
+	    });
+
+	    this.sales = {};
+	    this.units = {};
+
+	    salesKeys.forEach(function (keyArray) {
+	      var storageKey = keyArray[0] + ' ' + keyArray[1];
+	      var lookupKey = storageKey + ' ' + 'Sales';
+	      _this.sales[storageKey] = _this.data[lookupKey];
+	    });
+
+	    unitKeys.forEach(function (keyArray) {
+	      var storageKey = keyArray[0] + ' ' + keyArray[1];
+	      var lookupKey = storageKey + ' ' + 'Units';
+	      _this.units[storageKey] = _this.data[lookupKey];
+	    });
+	  }
+
+	  _createClass(Pattern, [{
+	    key: 'salesTotal',
+	    value: function salesTotal() {
+	      return this.calculateTotal(this.sales);
+	    }
+	  }, {
+	    key: 'unitsTotal',
+	    value: function unitsTotal() {
+	      return this.calculateTotal(this.units);
+	    }
+	  }, {
+	    key: 'calculateTotal',
+	    value: function calculateTotal(salesOrUnits) {
+	      var total = 0;
+	      Object.keys(salesOrUnits).forEach(function (key) {
+	        if (salesOrUnits[key] > 0) {
+	          total += salesOrUnits[key];
+	        }
+	      });
+	      return total;
+	    }
+	  }]);
+
+	  return Pattern;
+	}();
 
 /***/ },
 /* 1 */
